@@ -1,323 +1,141 @@
-let allProducts = [];
-
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+// Глобальное состояние
+let products = [];
+let cart = [];
+// DOM-элементы с приведением типов
+const menuGrid = document.querySelector(".menu-grid");
+const cartItemsContainer = document.querySelector(".cart-items");
+const cartCount = document.querySelector(".header__cart-count");
+const cartTotal = document.querySelector(".header__cart-total");
+const clearCartBtn = document.querySelector(".clear-cart-btn");
+const loader = document.getElementById("loader");
+const categoryButtons = document.querySelectorAll(".categories button");
+// === 1. ЗАГРУЗКА ИЗ PRODUCT.JSON ===
 async function fetchProducts() {
-    const loader = document.getElementById('loader');
-    console.log('Loader element:', loader); // Debugging line
-    if (loader) loader.style.display = 'flex';
+    if (loader)
+        loader.style.display = "flex";
     try {
-        const response = await fetch('product.json');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-
-        }
-
-        allProducts = await response.json();
-        await new Promise(resolve => setTimeout(resolve, 2000)); // ИСПРАВЛЕНО: Добавлена задержка для демонстрации лоадера
-
-        renderMenu(allProducts);
-
-    } catch (error) {
-        console.error('Error fetching products:', error);
-    } finally {
-        if (loader) loader.style.display = 'none';
+        const response = await fetch("./product.json");
+        products = await response.json();
+        renderMenu(products);
+    }
+    catch (error) {
+        console.error("Ошибка при загрузке product.json:", error);
+    }
+    finally {
+        if (loader)
+            loader.style.display = "none";
     }
 }
-
-const menuGridContainer = document.querySelector('.menu-grid');
-const cartCountElement = document.querySelector('.header__cart-count');
-const cartTotalElement = document.querySelector('.header__cart-total');
-const cartItemsContainer = document.querySelector('.cart-items');
-
-let currentCartCount = 0;
-let totalOrderPrice = 0;
-let cart = [];
-
-// 1. Функция рендеринга меню
-function renderMenu(productsArray) {
-    let htmlResult = '';
-
-    productsArray.forEach((product) => {
-        htmlResult += `
-        <div class="card">
-            <img src="${product.image}" alt="${product.title}" class="card__img">
-            <h2 class="card__title">${product.title}</h2>
-            <div class="card__price-box">
-                <span class="card__price">${product.price}$</span>
-                <button class="card__button" data-id="${product.id}">Buy</button> 
-            </div>
-        </div>
-        `; // ИСПРАВЛЕНО: Добавили data-id="${product.id}" кнопке Buy
+// === 2. ОТРИСОВКА МЕНЮ В .MENU-GRID ===
+function renderMenu(items) {
+    if (!menuGrid)
+        return;
+    menuGrid.innerHTML = "";
+    items.forEach((item) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+      <img src="${item.image}" alt="${item.title}" class="card__img">
+      <h3 class="card__title">${item.title}</h3>
+      <div class="card__price-box">
+        <span class="card__price">${item.price}$</span>
+        <button class="card__button" data-id="${item.id}">Buy</button>
+      </div>
+    `;
+        menuGrid.appendChild(card);
     });
-
-    menuGridContainer.innerHTML = htmlResult;
-
-    initCartLogic();
+    // Навешиваем клики на кнопки Buy
+    const buyButtons = menuGrid.querySelectorAll(".card__button");
+    buyButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const id = Number(btn.getAttribute("data-id"));
+            addToCart(id);
+        });
+    });
 }
-
-// 2. Функция рендеринга корзины (теперь она отдельная и независимая!)
-function renderCart() {
-    if (cart.length === 0) { // ИСПРАВЛЕНО: lentgh -> length
+// === 3. ЛОГИКА КОРЗИНЫ ===
+function addToCart(id) {
+    const product = products.find((p) => p.id === id);
+    if (!product)
+        return;
+    const existingItem = cart.find((item) => item.product.id === id);
+    if (existingItem) {
+        existingItem.quantity += 1;
+    }
+    else {
+        cart.push({ product, quantity: 1 });
+    }
+    updateCart();
+}
+function changeQuantity(id, delta) {
+    const item = cart.find((i) => i.product.id === id);
+    if (!item)
+        return;
+    item.quantity += delta;
+    if (item.quantity <= 0) {
+        cart = cart.filter((i) => i.product.id !== id);
+    }
+    updateCart();
+}
+// === 4. ОБНОВЛЕНИЕ КОРЗИНЫ В ХЕДЕРЕ И СЕКЦИИ CART ===
+function updateCart() {
+    if (!cartItemsContainer)
+        return;
+    const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const totalPrice = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    if (cartCount)
+        cartCount.textContent = totalCount.toString();
+    if (cartTotal)
+        cartTotal.textContent = totalPrice.toString();
+    if (cart.length === 0) {
         cartItemsContainer.innerHTML = `<p class="empty-cart-text">Your cart is empty...</p>`;
         return;
     }
-
-
-
-    let htmlResult = '';
-
+    cartItemsContainer.innerHTML = "";
     cart.forEach((item) => {
-        htmlResult += `
-        <div class="cart-item">
-            <p class="cart-item__title">${item.title}</p>
-            <div class="cart-item__controls">
-                <button class="cart-item__btn minus-btn" data-id="${item.id}">-</button>
-                <span class="cart-item__quantity">${item.quantity}</span>
-                <button class="cart-item__btn plus-btn" data-id="${item.id}">+</button>
-            </div>
-            <span class="cart-item__price">${item.price * item.quantity}$</span>
-        </div>`; // ИСПРАВЛЕНО: Закрыли тег </div> для cart-item
+        const cartItem = document.createElement("div");
+        cartItem.className = "cart-item";
+        cartItem.innerHTML = `
+      <p class="cart-item__title">${item.product.title}</p>
+      <div class="cart-item__controls">
+        <button class="cart-item__btn btn-minus" data-id="${item.product.id}">-</button>
+        <span class="cart-item__quantity">${item.quantity}</span>
+        <button class="cart-item__btn btn-plus" data-id="${item.product.id}">+</button>
+        <span class="cart-item__price">${item.product.price * item.quantity}$</span>
+      </div>
+    `;
+        cartItemsContainer.appendChild(cartItem);
     });
-
-    cartItemsContainer.innerHTML = htmlResult;
-
-    initCartChangeLogic();
-}
-
-// 3. Функция логики кнопок корзины
-function initCartLogic() {
-    const allButtons = document.querySelectorAll('.card__button');
-    
-    allButtons.forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const productId = parseInt(btn.dataset.id);
-            const productData = allProducts.find(product => product.id === productId);
-            const productInCart = cart.find(item => item.id === productId);
-
-            if (productInCart) {
-                productInCart.quantity++;
-            } else {
-                cart.push({
-                    ...productData,
-                    quantity: 1
-                });
-            }
-
-            totalOrderPrice += productData.price;
-            currentCartCount++;
-
-            cartCountElement.textContent = currentCartCount;
-            cartTotalElement.textContent = totalOrderPrice;
-
-            renderCart();
-        });
+    // Кнопки + и - внутри корзины
+    cartItemsContainer.querySelectorAll(".btn-minus").forEach((btn) => {
+        btn.addEventListener("click", () => changeQuantity(Number(btn.dataset.id), -1));
+    });
+    cartItemsContainer.querySelectorAll(".btn-plus").forEach((btn) => {
+        btn.addEventListener("click", () => changeQuantity(Number(btn.dataset.id), 1));
     });
 }
-
-// 4. Логика кнопок категорий
-const categoryButtons = document.querySelectorAll('.categories button');
-
-categoryButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-        const selectedCategory = button.dataset.category;
-
-        if (selectedCategory === 'all') {
-            renderMenu(allProducts);
-        } else {
-            const filteredProducts = allProducts.filter((product) => product.category === selectedCategory);
-            renderMenu(filteredProducts);
+// Очистить всю корзину
+if (clearCartBtn) {
+    clearCartBtn.addEventListener("click", () => {
+        cart = [];
+        updateCart();
+    });
+}
+// === 5. ФИЛЬТРАЦИЯ КАТЕГОРИЙ ===
+categoryButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+        const category = btn.getAttribute("data-category");
+        if (category === "all") {
+            renderMenu(products);
+        }
+        else {
+            const filtered = products.filter((p) => p.category === category);
+            renderMenu(filtered);
         }
     });
 });
-
-// 5. Кнопка очистки корзины
-const clearOption = document.querySelector('.clear-cart-btn');
-clearOption.addEventListener('click', () => {
-    currentCartCount = 0;
-    totalOrderPrice = 0;
-    cart = []; // Очищаем массив корзины тоже!
-
-    cartCountElement.textContent = currentCartCount;
-    cartTotalElement.textContent = totalOrderPrice;
-    
-    renderCart(); // Перерисовываем пустую корзину
-
-    const activeButtons = document.querySelectorAll('.card__button');
-    activeButtons.forEach(btn => {
-        btn.textContent = 'Buy';
-        btn.classList.remove('card__button--disabled');
-        btn.disabled = false;
-    });
-});
-
-function initCartChangeLogic() {
-    const minusButtons = document.querySelectorAll('.minus-btn');
-    const plusButtons = document.querySelectorAll('.plus-btn');
-
-    plusButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const productId = parseInt(btn.dataset.id);
-
-            const productInCart = cart.find(item => item.id === productId);
-
-            if (productInCart) {
-                productInCart.quantity++;
-                currentCartCount++;
-                totalOrderPrice += productInCart.price;
-
-                updateHeaderData();
-                renderCart();
-            }
-        });
-    });
-
-    minusButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const productId = parseInt(btn.dataset.id);
-            const productInCart = cart.find(item => item.id === productId);
-
-            if(productInCart) {
-                if (productInCart.quantity > 1){
-                    productInCart.quantity--;
-                } else {
-                    cart = cart.filter(item => item.id !== productId);
-                }
-
-                currentCartCount--;
-                totalOrderPrice -= productInCart.price;
-
-                updateHeaderData()
-                renderCart();
-            }
-        });
-    });
-}
-
-    function updateHeaderData() {
-        cartCountElement.textContent = currentCartCount;
-        cartTotalElement.textContent = totalOrderPrice;
-
-    }
-
-     function updateHeaderData() {
-            cartCountElement.textContent = currentCartCount;
-            cartTotalElement.textContent = totalOrderPrice;
-
-        }
-
-        const regForm = document.querySelector('.registration-form');
-        const usernameInput = document.getElementById('username');
-        const emailInput = document.getElementById('email');
-
-        regForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const usernameValue = usernameInput.value.trim();
-            const emailValue = emailInput.value.trim();
-            let isFormValid = true;
-
-            if (usernameValue.length < 2) {
-                usernameInput.style.border = " 2px solid red";
-                isFormValid = false;
-            } else {
-                usernameInput.style.border = "2px solid green";
-            }
-
-            if (emailValue === '') {
-                emailInput.style.border = "2px solid red";
-                isFormValid = false;
-            } else {
-                emailInput.style.border = "2px solid green";
-            }
-
-            if (isFormValid) {
-                await 
-                sendDataToTestServer(usernameValue, emailValue);
-                alert(`Congratulations!You're subscried, ${usernameValue}!`);
-                regForm.reset();
-                usernameInput.style.borderColor = '';
-                emailInput.style.borderColor = '';
-
-            }
-
-            async function sendDataToTestServer(name, email) {
-                try {
-                    const response = await fetch('https://jsonplaceholder.typicode.com/posts'
-                        ,{method:'POST',
-                            body: JSON.stringify({
-                                title: name,
-                                body: email,
-                                userId: 1,
-                            }),
-                            headers: {
-                                'Content-type': 'application/json; charset=UTF-8',
-                            },
-                        });
-
-                        const data = await response.json();
-                        console.log('Answer test server:',data);
-                        alert(`Congratulations!Id is back: ${data.id}`);
-                            
-                } catch (error) {
-                    console.error('Error:', error);
-                    alert('Data do not send');
-                }
-            }
-        });
-
-        regForm.addEventListener('input', (e) => {
-            if (e.target.tagName === 'INPUT') {
-                e.target.style.border = '';
-            }
-        });
-
-const checkoutBtn = document.querySelector('.checkout-btn');
-
-if (checkoutBtn) {
-    checkoutBtn.addEventListener('click', async () => {
-        if (cart.length === 0) {
-            alert('Your cart is empty! Add some products first.');
-            return;
-        }
-
-        checkoutBtn.disabled = true;
-        checkoutBtn.textContent = 'Sending...';
-
-        const orderData = {
-            orderItems: cart,
-            totalPrice: totalOrderPrice,
-            date: new Date().toISOString()
-        };
-
-        try {
-            const response = await fetch('https://jsonplaceholder.typicode.com/posts', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(orderData)
-            });
-
-            if (!response.ok) {
-                throw new Error(`Server error: ${response.status}`);
-            }
-
-            const data=await response.json();
-            console.log(`Order #${data.id} placed successfully! Total: ${totalOrderPrice}$`);
-
-            cart = [];
-            currentCartCount = 0;
-            totalOrderPrice = 0;
-
-            updateHeaderData();
-            renderCart();
-        } catch (error) {
-            console.error('Failed to process order:', error);
-            alert('Something went wrong. Please try again.');
-        } finally {
-            checkoutBtn.disabled = false;
-            checkoutBtn.textContent = 'Checkout Order';
-        }
-    });
-}
-
-// Первый запуск программы
+// Старт работы
 fetchProducts();
+//# sourceMappingURL=app.js.map
