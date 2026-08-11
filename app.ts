@@ -1,4 +1,3 @@
-// 1. Интерфейс под твой product.json
 // ===============================
 // TYPES
 // ===============================
@@ -15,523 +14,274 @@ interface CartItem extends Product {
     quantity: number;
 }
 
+interface ServerResponse {
+    id: number;
+    title: string;
+    body: string;
+    userId: number;
+}
 
 // ===============================
-// PRODUCTS
+// STATE & DOM ELEMENTS
 // ===============================
 
-const products: Product[] = [
-    {
-        id: 1,
-        title: "Royal Cheesburger",
-        price: 13,
-        image: "royal-cheesburger.jpeg",
-        category: "burgers"
-    },
-    {
-        id: 3,
-        title: "Big-mac",
-        price: 12,
-        image: "big-mac.jpeg",
-        category: "burgers"
-    },
-    {
-        id: 4,
-        title: "French fries",
-        price: 8,
-        image: "fries.jpeg",
-        category: "snacks"
-    },
-    {
-        id: 5,
-        title: "Nuggets",
-        price: 6,
-        image: "nuggets.jpeg",
-        category: "snacks"
-    },
-    {
-        id: 6,
-        title: "Apple juice",
-        price: 3,
-        image: "apple-juice.jpeg",
-        category: "drinks"
-    },
-    {
-        id: 7,
-        title: "Coke",
-        price: 5,
-        image: "coke.jpeg",
-        category: "drinks"
-    },
-    {
-        id: 2,
-        title: "Americano",
-        price: 4,
-        image: "americano.jpeg",
-        category: "drinks"
-    },
-    {
-        id: 8,
-        title: "Ice latte",
-        price: 6,
-        image: "ice-latte.jpeg",
-        category: "drinks"
-    },
-    {
-        id: 9,
-        title: "Latte",
-        price: 5,
-        image: "latte.jpeg",
-        category: "drinks"
-    }
-];
-
-
-// ===============================
-// CART
-// ===============================
-
+let allProducts: Product[] = [];
 let cart: CartItem[] = [];
 
+const menuGridContainer = document.querySelector(".menu-grid") as HTMLDivElement | null;
+const cartCountElement = document.querySelector(".header__cart-count") as HTMLSpanElement | null;
+const cartTotalElement = document.querySelector(".header__cart-total") as HTMLSpanElement | null;
+const cartItemsContainer = document.querySelector(".cart-items") as HTMLDivElement | null;
+const loader = document.getElementById("loader") as HTMLDivElement | null;
+const clearOption = document.querySelector(".clear-cart-btn") as HTMLButtonElement | null;
+const categoryButtons = document.querySelectorAll<HTMLButtonElement>(".categories button");
+
+const regForm = document.querySelector(".registration-form") as HTMLFormElement | null;
+const usernameInput = document.getElementById("username") as HTMLInputElement | null;
+const emailInput = document.getElementById("email") as HTMLInputElement | null;
 
 // ===============================
-// DOM ELEMENTS
+// FETCH PRODUCTS & RENDER MENU
 // ===============================
 
-const menuGrid = document.querySelector(".menu-grid") as HTMLDivElement;
+async function fetchProducts(): Promise<void> {
+    try {
+        if (loader) loader.style.display = "flex";
 
-const cartItemsContainer =
-    document.querySelector(".cart-items") as HTMLDivElement;
+        const response = await fetch("product.json");
 
-const cartCount =
-    document.querySelector(".header__cart-count") as HTMLSpanElement;
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-const cartTotal =
-    document.querySelector(".header__cart-total") as HTMLSpanElement;
+        allProducts = await response.json();
+        
+        // Задержка 2 секунды для демонстрации лоадера
+        await new Promise((resolve) => setTimeout(resolve, 2000));
 
-const clearCartButton =
-    document.querySelector(".clear-cart-btn") as HTMLButtonElement;
+        renderMenu(allProducts);
+    } catch (error) {
+        console.error("Error fetching products:", error);
+    } finally {
+        if (loader) loader.style.display = "none";
+    }
+}
 
-const checkoutButton =
-    document.querySelector(".checkout-btn") as HTMLButtonElement;
+function renderMenu(productsArray: Product[]): void {
+    if (!menuGridContainer) return;
 
-const loader =
-    document.querySelector("#loader") as HTMLDivElement;
+    let htmlResult = "";
 
-const categoryButtons =
-    document.querySelectorAll(".categories button");
-
-const registrationForm =
-    document.querySelector(".registration-form") as HTMLFormElement;
-
-
-// ===============================
-// RENDER PRODUCTS
-// ===============================
-
-function renderProducts(productsToRender: Product[]): void {
-
-    menuGrid.innerHTML = "";
-
-    productsToRender.forEach((product) => {
-
-        const isInCart = cart.some((item) => item.id === product.id);
-
-        const card = document.createElement("article");
-
-        card.className = "card";
-
-        card.innerHTML = `
-            <img
-                class="card__img"
-                src="${product.image}"
-                alt="${product.title}"
-            >
-
-            <h3 class="card__title">
-                ${product.title}
-            </h3>
-
+    productsArray.forEach((product) => {
+        htmlResult += `
+        <div class="card">
+            <img src="${product.image}" alt="${product.title}" class="card__img">
+            <h2 class="card__title">${product.title}</h2>
             <div class="card__price-box">
-
-                <div class="card__price">
-                    ${product.price}$
-                </div>
-
-                <button
-                    class="card__button ${isInCart ? "card__button--disabled" : ""}"
-                    data-id="${product.id}"
-                    ${isInCart ? "disabled" : ""}
-                >
-                    ${isInCart ? "Added" : "Add to cart"}
-                </button>
-
+                <span class="card__price">${product.price}$</span>
+                <button class="card__button" data-id="${product.id}">Buy</button> 
             </div>
+        </div>
         `;
-
-        menuGrid.appendChild(card);
     });
+
+    menuGridContainer.innerHTML = htmlResult;
 }
 
-
 // ===============================
-// ADD PRODUCT TO CART
+// CART LOGIC & RENDER
 // ===============================
 
-function addToCart(productId: number): void {
+function updateHeaderData(): void {
+    const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    const product = products.find(
-        (product) => product.id === productId
-    );
-
-    if (!product) {
-        return;
-    }
-
-    const existingItem = cart.find(
-        (item) => item.id === productId
-    );
-
-    if (existingItem) {
-
-        existingItem.quantity += 1;
-
-    } else {
-
-        cart.push({
-            ...product,
-            quantity: 1
-        });
-
-    }
-
-    updateCart();
-
-    renderProducts(products);
+    if (cartCountElement) cartCountElement.textContent = totalCount.toString();
+    if (cartTotalElement) cartTotalElement.textContent = totalPrice.toFixed(2);
 }
 
-
-// ===============================
-// REMOVE ONE PRODUCT
-// ===============================
-
-function removeFromCart(productId: number): void {
-
-    const item = cart.find(
-        (item) => item.id === productId
-    );
-
-    if (!item) {
-        return;
-    }
-
-    item.quantity -= 1;
-
-    if (item.quantity <= 0) {
-
-        cart = cart.filter(
-            (item) => item.id !== productId
-        );
-
-    }
-
-    updateCart();
-
-    renderProducts(products);
-}
-
-
-// ===============================
-// CLEAR CART
-// ===============================
-
-function clearCart(): void {
-
-    cart = [];
-
-    updateCart();
-
-    renderProducts(products);
-}
-
-
-// ===============================
-// UPDATE CART
-// ===============================
-
-function updateCart(): void {
-
-    cartItemsContainer.innerHTML = "";
+function renderCart(): void {
+    if (!cartItemsContainer) return;
 
     if (cart.length === 0) {
-
-        cartItemsContainer.innerHTML = `
-            <p class="empty-cart-text">
-                Your cart is empty...
-            </p>
-        `;
-
-        cartCount.textContent = "0";
-        cartTotal.textContent = "0";
-
-        checkoutButton.disabled = true;
-
+        cartItemsContainer.innerHTML = `<p class="empty-cart-text">Your cart is empty...</p>`;
         return;
     }
 
-    checkoutButton.disabled = false;
+    let htmlResult = "";
 
-
-    // Количество всех товаров
-    const totalQuantity = cart.reduce(
-        (total, item) => total + item.quantity,
-        0
-    );
-
-
-    // Общая стоимость
-    const totalPrice = cart.reduce(
-        (total, item) => total + item.price * item.quantity,
-        0
-    );
-
-
-    cartCount.textContent = totalQuantity.toString();
-
-    cartTotal.textContent = totalPrice.toFixed(2);
-
-
-    // Рисуем товары в корзине
     cart.forEach((item) => {
-
-        const cartItem = document.createElement("div");
-
-        cartItem.className = "cart-item";
-
-        cartItem.innerHTML = `
-            <p class="cart-item__title">
-                ${item.title}
-            </p>
-
+        htmlResult += `
+        <div class="cart-item">
+            <p class="cart-item__title">${item.title}</p>
             <div class="cart-item__controls">
-
-                <button
-                    class="cart-item__btn cart-item__minus"
-                    data-id="${item.id}"
-                >
-                    −
-                </button>
-
-                <span class="cart-item__quantity">
-                    ${item.quantity}
-                </span>
-
-                <button
-                    class="cart-item__btn cart-item__plus"
-                    data-id="${item.id}"
-                >
-                    +
-                </button>
-
+                <button class="cart-item__btn minus-btn" data-id="${item.id}">-</button>
+                <span class="cart-item__quantity">${item.quantity}</span>
+                <button class="cart-item__btn plus-btn" data-id="${item.id}">+</button>
             </div>
+            <span class="cart-item__price">${(item.price * item.quantity).toFixed(2)}$</span>
+        </div>`;
+    });
 
-            <div class="cart-item__price">
-                ${(item.price * item.quantity).toFixed(2)}$
-            </div>
-        `;
+    cartItemsContainer.innerHTML = htmlResult;
+}
 
-        cartItemsContainer.appendChild(cartItem);
+// Делегирование событий для кнопок "Buy" в меню
+if (menuGridContainer) {
+    menuGridContainer.addEventListener("click", (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        const buyBtn = target.closest(".card__button") as HTMLButtonElement | null;
+        if (!buyBtn) return;
+
+        const productId = Number(buyBtn.dataset.id);
+        const productData = allProducts.find((product) => product.id === productId);
+        if (!productData) return;
+
+        const productInCart = cart.find((item) => item.id === productId);
+
+        if (productInCart) {
+            productInCart.quantity++;
+        } else {
+            cart.push({
+                ...productData,
+                quantity: 1,
+            });
+        }
+
+        updateHeaderData();
+        renderCart();
     });
 }
 
+// Делегирование событий для кнопок "+" и "-" в корзине
+if (cartItemsContainer) {
+    cartItemsContainer.addEventListener("click", (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        const btn = target.closest(".cart-item__btn") as HTMLButtonElement | null;
+        if (!btn) return;
+
+        const productId = Number(btn.dataset.id);
+        const productInCart = cart.find((item) => item.id === productId);
+
+        if (!productInCart) return;
+
+        if (btn.classList.contains("plus-btn")) {
+            productInCart.quantity++;
+        } else if (btn.classList.contains("minus-btn")) {
+            if (productInCart.quantity > 1) {
+                productInCart.quantity--;
+            } else {
+                cart = cart.filter((item) => item.id !== productId);
+            }
+        }
+
+        updateHeaderData();
+        renderCart();
+    });
+}
 
 // ===============================
-// PRODUCT BUTTONS
-// ===============================
-
-menuGrid.addEventListener("click", (event) => {
-
-    const target = event.target as HTMLElement;
-
-    const button = target.closest(".card__button") as HTMLButtonElement | null;
-
-    if (!button) {
-        return;
-    }
-
-    const productId = Number(button.dataset.id);
-
-    addToCart(productId);
-});
-
-
-// ===============================
-// CART BUTTONS
-// ===============================
-
-cartItemsContainer.addEventListener("click", (event) => {
-
-    const target = event.target as HTMLElement;
-
-    const button = target.closest(
-        ".cart-item__btn"
-    ) as HTMLButtonElement | null;
-
-    if (!button) {
-        return;
-    }
-
-    const productId = Number(button.dataset.id);
-
-    if (button.classList.contains("cart-item__plus")) {
-
-        addToCart(productId);
-
-    }
-
-    if (button.classList.contains("cart-item__minus")) {
-
-        removeFromCart(productId);
-
-    }
-});
-
-
-// ===============================
-// CLEAR CART BUTTON
-// ===============================
-
-clearCartButton.addEventListener("click", () => {
-
-    clearCart();
-
-});
-
-
-// ===============================
-// CATEGORIES
+// CATEGORIES & CLEAR CART
 // ===============================
 
 categoryButtons.forEach((button) => {
-
     button.addEventListener("click", () => {
+        const selectedCategory = button.dataset.category;
 
-        const category = button.getAttribute("data-category");
+        if (selectedCategory === "all") {
+            renderMenu(allProducts);
+        } else {
+            const filteredProducts = allProducts.filter((product) => product.category === selectedCategory);
+            renderMenu(filteredProducts);
+        }
+    });
+});
 
-        if (!category) {
-            return;
+if (clearOption) {
+    clearOption.addEventListener("click", () => {
+        cart = [];
+        updateHeaderData();
+        renderCart();
+
+        const activeButtons = document.querySelectorAll<HTMLButtonElement>(".card__button");
+        activeButtons.forEach((btn) => {
+            btn.textContent = "Buy";
+            btn.classList.remove("card__button--disabled");
+            btn.disabled = false;
+        });
+    });
+}
+
+// ===============================
+// FORM & API REQUEST
+// ===============================
+
+async function sendDataToTestServer(name: string, email: string): Promise<void> {
+    try {
+        const response = await fetch("https://jsonplaceholder.typicode.com/posts", {
+            method: "POST",
+            body: JSON.stringify({
+                title: name,
+                body: email,
+                userId: 1,
+            }),
+            headers: {
+                "Content-type": "application/json; charset=UTF-8",
+            },
+        });
+
+        const data: ServerResponse = await response.json();
+        console.log("Answer test server:", data);
+        alert(`Congratulations! Id is back: ${data.id}`);
+    } catch (error) {
+        console.error("Error:", error);
+        alert("Data do not send");
+    }
+}
+
+if (regForm) {
+    regForm.addEventListener("submit", async (e: Event) => {
+        e.preventDefault();
+
+        if (!usernameInput || !emailInput) return;
+
+        const usernameValue = usernameInput.value.trim();
+        const emailValue = emailInput.value.trim();
+        let isFormValid = true;
+
+        if (usernameValue.length < 2) {
+            usernameInput.style.border = "2px solid red";
+            isFormValid = false;
+        } else {
+            usernameInput.style.border = "2px solid green";
         }
 
-
-        if (category === "all") {
-
-            renderProducts(products);
-
-            return;
+        if (emailValue === "") {
+            emailInput.style.border = "2px solid red";
+            isFormValid = false;
+        } else {
+            emailInput.style.border = "2px solid green";
         }
 
-
-        const filteredProducts = products.filter(
-            (product) => product.category === category
-        );
-
-        renderProducts(filteredProducts);
-
+        if (isFormValid) {
+            await sendDataToTestServer(usernameValue, emailValue);
+            alert(`Congratulations! You're subscribed, ${usernameValue}!`);
+            regForm.reset();
+            usernameInput.style.borderColor = "";
+            emailInput.style.borderColor = "";
+        }
     });
 
-});
-
-
-// ===============================
-// LOADER
-// ===============================
-
-function showLoader(): void {
-
-    loader.style.display = "flex";
+    regForm.addEventListener("input", (e: Event) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName === "INPUT") {
+            target.style.border = "";
+        }
+    });
 }
 
-function hideLoader(): void {
-
-    loader.style.display = "none";
-}
-
-
 // ===============================
-// CHECKOUT
+// INIT
 // ===============================
 
-checkoutButton.addEventListener("click", () => {
-
-    if (cart.length === 0) {
-        alert("Your cart is empty!");
-        return;
-    }
-
-    const totalPrice = cart.reduce(
-        (total, item) => total + item.price * item.quantity,
-        0
-    );
-
-    alert(
-        `Order accepted!\nTotal: ${totalPrice.toFixed(2)}$`
-    );
-
-    clearCart();
-
-});
-
-
-// ===============================
-// REGISTRATION FORM
-// ===============================
-
-registrationForm.addEventListener("submit", (event) => {
-
-    event.preventDefault();
-
-    const usernameInput =
-        document.querySelector("#username") as HTMLInputElement;
-
-    const emailInput =
-        document.querySelector("#email") as HTMLInputElement;
-
-    const username = usernameInput.value.trim();
-
-    const email = emailInput.value.trim();
-
-    if (!username || !email) {
-        alert("Please fill in all fields.");
-        return;
-    }
-
-    alert(
-        `Thank you, ${username}!\nYour email: ${email}`
-    );
-
-    registrationForm.reset();
-
-});
-
-
-// ===============================
-// INITIALIZATION
-// ===============================
-
-function init(): void {
-
-    showLoader();
-
-    setTimeout(() => {
-
-        renderProducts(products);
-
-        updateCart();
-
-        hideLoader();
-
-    }, 500);
-
-}
-
-init();
+fetchProducts();
