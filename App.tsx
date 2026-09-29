@@ -8,7 +8,7 @@ export function App(): JSX.Element {
     const [cart, setCart] = useState<CartItem[]>([]);
 
     useEffect(() => {
-        fetch("./product.json")
+        fetch("/product.json")
             .then((res) => res.json())
             .then((data: Product[]) => setProducts(data))
             .catch((err) => console.error("Ошибка загрузки товаров:", err));
