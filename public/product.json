@@ -3,63 +3,63 @@
     "id": 1,
     "title": "Royal Cheesburger",
     "price": 13,
-    "image": "royal-cheesburger.jpeg",
+    "image": "/royal-cheesburger.jpeg",
     "category": "burgers"
   },
   {
     "id": 3,
     "title": "Big-mac",
     "price": 12,
-    "image": "big-mac.jpeg",
+    "image": "/big-mac.jpeg",
     "category": "burgers"
   },
   {
     "id": 4,
     "title": "French fries",
     "price": 8,
-    "image": "fries.jpeg",
+    "image": "/fries.jpeg",
     "category": "snacks"
   },
   {
     "id": 5,
     "title": "Nuggets",
     "price": 6,
-    "image": "nuggets.jpeg",
+    "image": "/nuggets.jpeg",
     "category": "snacks"
   },
   {
     "id": 6,
     "title": "Apple juice",
     "price": 3,
-    "image": "apple-juice.jpeg",
+    "image": "/apple-juice.jpeg",
     "category": "drinks"
   },
   {
     "id": 7,
     "title": "Coke",
     "price": 5,
-    "image": "coke.jpeg",
+    "image": "/coke.jpeg",
     "category": "drinks"
   },
   {
     "id": 2,
     "title": "Americano",
     "price": 4,
-    "image": "americano.jpeg",
+    "image": "/americano.jpeg",
     "category": "drinks"
   },
   {
     "id": 8,
     "title": "Ice latte",
     "price": 6,
-    "image": "ice-latte.jpeg",
+    "image": "/ice-latte.jpeg",
     "category": "drinks"
   },
   {
     "id": 9,
     "title": "Latte",
     "price": 5,
-    "image": "latte.jpeg",
+    "image": "/latte.jpeg",
     "category": "drinks"
   }
 ]
